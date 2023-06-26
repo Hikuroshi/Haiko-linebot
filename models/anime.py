@@ -1,9 +1,24 @@
-from linebot.models import FlexSendMessage
+from linebot.models import TextSendMessage, FlexSendMessage
 from jikanpy import Jikan
 from helpers import line_bot_api
+import time
 
+
+last_command_time = 0
+anime_info_count = {}
 
 def hk_anime(command, token):
+    global last_command_time, anime_info_count
+
+    current_time = time.time()
+    elapsed_time = current_time - last_command_time
+
+    if elapsed_time < 20:
+        wait_time = int(20 - elapsed_time)
+        return f"Tunggu {wait_time} detik lagi untuk dapat mengirim perintah"
+
+    last_command_time = current_time
+
     parts = command.split(" ", 2)
 
     if len(parts) >= 3:
@@ -160,6 +175,7 @@ def hk_anime(command, token):
 
                 flex_message = FlexSendMessage(alt_text="Informasi Anime", contents={"type": "carousel", "contents": carousels})
                 line_bot_api.reply_message(token, flex_message)
+                anime_info_count = {}
                 return
             else:
                 return f"Tidak ditemukan informasi anime dengan judul {query}"
@@ -172,207 +188,77 @@ def hk_anime(command, token):
     
 
 def hk_postback_anime(data, reply_token):
-        parts = data.split(" ", 2)
+    global anime_info_count
+    
+    parts = data.split(" ", 2)
+    
+    if len(parts) >= 2:
+        action = parts[1]
+        anime_id = parts[2]
         
-        if len(parts) >= 2:
-            action = parts[1]
-            anime_id = parts[2]
+        jikan = Jikan()
+        
+        if action.lower() == "info":
+            anime = jikan.anime(anime_id)
+            anime_info = anime["data"]
             
-            jikan = Jikan()
+            if anime_id not in anime_info_count:
+                anime_info_count[anime_id] = 0
+
+            if anime_info_count[anime_id] < 2:
+                anime_info_count[anime_id] += 1
             
-            if action.lower() == "info":
-                anime = jikan.anime(anime_id)
-                anime_info = anime["data"]
-                
-                if anime_info:
-                    flex_content = {
-                        "type": "bubble",
-                        "body": {
+                flex_content = {
+                    "type": "bubble",
+                    "body": {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                        {
+                            "type": "text",
+                            "text": anime_info["title"] or "Unknown",
+                            "weight": "bold",
+                            "size": "xxl",
+                            "margin": "md",
+                            "wrap": True
+                        },
+                        {
+                            "type": "text",
+                            "text": anime_info["synopsis"] or "Unknown",
+                            "size": "xs",
+                            "margin": "md",
+                            "wrap": True
+                        },
+                        {
+                            "type": "separator",
+                            "margin": "xxl"
+                        },
+                        {
                             "type": "box",
                             "layout": "vertical",
+                            "margin": "xxl",
+                            "spacing": "sm",
                             "contents": [
                             {
-                                "type": "text",
-                                "text": anime_info["title"] or "Unknown",
-                                "weight": "bold",
-                                "size": "xxl",
-                                "margin": "md",
-                                "wrap": True
-                            },
-                            {
-                                "type": "text",
-                                "text": anime_info["synopsis"] or "Unknown",
-                                "size": "xs",
-                                "margin": "md",
-                                "wrap": True
-                            },
-                            {
-                                "type": "separator",
-                                "margin": "xxl"
-                            },
-                            {
                                 "type": "box",
-                                "layout": "vertical",
-                                "margin": "xxl",
-                                "spacing": "sm",
+                                "layout": "horizontal",
                                 "contents": [
                                 {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "text": "Episode",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": str(anime_info["episodes"]) or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ]
+                                    "type": "text",
+                                    "text": "Episode",
+                                    "size": "sm",
+                                    "color": "#555555",
+                                    "flex": 0
                                 },
                                 {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "text": "Durasi",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": anime_info["duration"] or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "text": "Status",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": anime_info["status"] or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0,
-                                        "text": "Tayang"
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": anime_info['aired']['string'] or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ]
-                                },
-                                {
-                                    "type": "separator",
-                                    "margin": "xxl"
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0,
-                                        "text": "Rank"
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": str(anime_info["rank"]) or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ],
-                                    "paddingTop": "xl"
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0,
-                                        "text": "Popularitas"
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": str(anime_info["popularity"]) or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ]
-                                },
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "contents": [
-                                    {
-                                        "type": "text",
-                                        "size": "sm",
-                                        "color": "#555555",
-                                        "flex": 0,
-                                        "text": "Rating"
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": anime_info["rating"] or "Unknown",
-                                        "size": "sm",
-                                        "color": "#111111",
-                                        "align": "end",
-                                        "offsetEnd": "1px"
-                                    }
-                                    ]
+                                    "type": "text",
+                                    "text": str(anime_info["episodes"]) or "Unknown",
+                                    "size": "sm",
+                                    "color": "#111111",
+                                    "align": "end",
+                                    "offsetEnd": "1px"
                                 }
                                 ]
-                            },
-                            {
-                                "type": "separator",
-                                "margin": "xxl"
                             },
                             {
                                 "type": "box",
@@ -380,22 +266,41 @@ def hk_postback_anime(data, reply_token):
                                 "contents": [
                                 {
                                     "type": "text",
+                                    "text": "Durasi",
                                     "size": "sm",
                                     "color": "#555555",
-                                    "text": "Studio",
                                     "flex": 0
                                 },
                                 {
                                     "type": "text",
-                                    "text": ', '.join([studio['name'] for studio in anime_info['studios']]) or "Unknown",
+                                    "text": anime_info["duration"] or "Unknown",
                                     "size": "sm",
                                     "color": "#111111",
                                     "align": "end",
-                                    "offsetEnd": "1px",
-                                    "wrap": True
+                                    "offsetEnd": "1px"
                                 }
-                                ],
-                                "margin": "xl"
+                                ]
+                            },
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                {
+                                    "type": "text",
+                                    "text": "Status",
+                                    "size": "sm",
+                                    "color": "#555555",
+                                    "flex": 0
+                                },
+                                {
+                                    "type": "text",
+                                    "text": anime_info["status"] or "Unknown",
+                                    "size": "sm",
+                                    "color": "#111111",
+                                    "align": "end",
+                                    "offsetEnd": "1px"
+                                }
+                                ]
                             },
                             {
                                 "type": "box",
@@ -406,29 +311,150 @@ def hk_postback_anime(data, reply_token):
                                     "size": "sm",
                                     "color": "#555555",
                                     "flex": 0,
-                                    "text": "Produser",
-                                    "wrap": True
+                                    "text": "Tayang"
                                 },
                                 {
                                     "type": "text",
-                                    "text": ', '.join([producer['name'] for producer in anime_info['producers']]) or "Unknown",
+                                    "text": anime_info['aired']['string'] or "Unknown",
                                     "size": "sm",
                                     "color": "#111111",
                                     "align": "end",
-                                    "offsetEnd": "1px",
-                                    "wrap": True
+                                    "offsetEnd": "1px"
+                                }
+                                ]
+                            },
+                            {
+                                "type": "separator",
+                                "margin": "xxl"
+                            },
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                {
+                                    "type": "text",
+                                    "size": "sm",
+                                    "color": "#555555",
+                                    "flex": 0,
+                                    "text": "Rank"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": str(anime_info["rank"]) or "Unknown",
+                                    "size": "sm",
+                                    "color": "#111111",
+                                    "align": "end",
+                                    "offsetEnd": "1px"
+                                }
+                                ],
+                                "paddingTop": "xl"
+                            },
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                {
+                                    "type": "text",
+                                    "size": "sm",
+                                    "color": "#555555",
+                                    "flex": 0,
+                                    "text": "Popularitas"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": str(anime_info["popularity"]) or "Unknown",
+                                    "size": "sm",
+                                    "color": "#111111",
+                                    "align": "end",
+                                    "offsetEnd": "1px"
+                                }
+                                ]
+                            },
+                            {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                {
+                                    "type": "text",
+                                    "size": "sm",
+                                    "color": "#555555",
+                                    "flex": 0,
+                                    "text": "Rating"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": anime_info["rating"] or "Unknown",
+                                    "size": "sm",
+                                    "color": "#111111",
+                                    "align": "end",
+                                    "offsetEnd": "1px"
                                 }
                                 ]
                             }
                             ]
                         },
-                        "styles": {
-                            "footer": {
-                            "separator": True
+                        {
+                            "type": "separator",
+                            "margin": "xxl"
+                        },
+                        {
+                            "type": "box",
+                            "layout": "horizontal",
+                            "contents": [
+                            {
+                                "type": "text",
+                                "size": "sm",
+                                "color": "#555555",
+                                "text": "Studio",
+                                "flex": 0
+                            },
+                            {
+                                "type": "text",
+                                "text": ', '.join([studio['name'] for studio in anime_info['studios']]) or "Unknown",
+                                "size": "sm",
+                                "color": "#111111",
+                                "align": "end",
+                                "offsetEnd": "1px",
+                                "wrap": True
                             }
+                            ],
+                            "margin": "xl"
+                        },
+                        {
+                            "type": "box",
+                            "layout": "horizontal",
+                            "contents": [
+                            {
+                                "type": "text",
+                                "size": "sm",
+                                "color": "#555555",
+                                "flex": 0,
+                                "text": "Produser",
+                                "wrap": True
+                            },
+                            {
+                                "type": "text",
+                                "text": ', '.join([producer['name'] for producer in anime_info['producers']]) or "Unknown",
+                                "size": "sm",
+                                "color": "#111111",
+                                "align": "end",
+                                "offsetEnd": "1px",
+                                "wrap": True
+                            }
+                            ]
                         }
+                        ]
+                    },
+                    "styles": {
+                        "footer": {
+                        "separator": True
                         }
+                    }
+                }
 
-                    flex_message = FlexSendMessage(alt_text="Informasi Lengkap Anime", contents=flex_content)
-                    line_bot_api.reply_message(reply_token, flex_message)
-                    return
+                flex_message = FlexSendMessage(alt_text="Informasi Lengkap Anime", contents=flex_content)
+                line_bot_api.reply_message(reply_token, flex_message)
+                return
+
+    line_bot_api.reply_message(reply_token, TextSendMessage(text="Informasi lengkap sudah ada, scroll ke atas atau ketik ulang perintah"))
+    return 
