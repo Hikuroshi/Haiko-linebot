@@ -205,7 +205,7 @@ def hk_postback_anime(data, reply_token):
             if anime_id not in anime_info_count:
                 anime_info_count[anime_id] = 0
 
-            if anime_info_count[anime_id] < 2:
+            if anime_info_count[anime_id] < 1:
                 anime_info_count[anime_id] += 1
             
                 flex_content = {
@@ -449,7 +449,8 @@ def hk_postback_anime(data, reply_token):
                         "footer": {
                         "separator": True
                         }
-                    }
+                    },
+                    "size": "giga"
                 }
 
                 flex_message = FlexSendMessage(alt_text="Informasi Lengkap Anime", contents=flex_content)
