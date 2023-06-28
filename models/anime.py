@@ -2,6 +2,7 @@ from linebot.models import TextSendMessage, FlexSendMessage
 from jikanpy import Jikan
 from helpers import line_bot_api
 import time
+import requests
 
 
 last_command_time = 0
@@ -21,13 +22,13 @@ def hk_anime(command, token):
 
     parts = command.split(" ", 2)
 
-    if len(parts) >= 3:
+    if len(parts) >= 2:
         action = parts[1]
-        query = parts[2]
 
         jikan = Jikan()
 
-        if action.lower() in ["info", "i"]:
+        if action.lower() in ["info", "i"] and len(parts) >= 3:
+            query = parts[2]
             anime = jikan.search("anime", query, page=1)
 
             if anime["data"]:
@@ -180,12 +181,165 @@ def hk_anime(command, token):
             else:
                 return f"Tidak ditemukan informasi anime dengan judul {query}"
 
+        elif action.lower() in ["trending", "t"]:
+            url = f"https://api.consumet.org/meta/anilist/trending"
+            response = requests.get(url)
+
+            if response.status_code == 200:
+                data = response.json()
+                
+                carousels = []
+
+                for anime_trending in data["results"]:
+                    rating = anime_trending["rating"]
+                    score = '{:.2f}'.format(rating / 10)
+                    
+                    if score is None:
+                        score = "N/A"
+                        star_count = 0
+                        gray_star_count = 5
+                    else:
+                        score = float(score)
+                        star_count = int(score / 2)
+                        gray_star_count = 5 - star_count
+                    
+                    stars = []
+                    for _ in range(star_count):
+                        stars.append({
+                            "type": "icon",
+                            "size": "sm",
+                            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"
+                        })
+
+                    for _ in range(gray_star_count):
+                        stars.append({
+                            "type": "icon",
+                            "size": "sm",
+                            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gray_star_28.png"
+                        })
+
+                    carousel = {
+                        "type": "bubble",
+                        "body": {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "image",
+                                    "url": anime_trending['image'],
+                                    "size": "full",
+                                    "aspectMode": "cover",
+                                    "aspectRatio": "2:3",
+                                    "gravity": "top"
+                                },
+                                {
+                                    "type": "box",
+                                    "layout": "vertical",
+                                    "contents": [
+                                        {
+                                            "type": "box",
+                                            "layout": "vertical",
+                                            "contents": [
+                                                {
+                                                    "type": "text",
+                                                    "text": anime_trending['title']['romaji'],
+                                                    "size": "xl",
+                                                    "color": "#ffffff",
+                                                    "weight": "bold",
+                                                    "wrap": True
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "type": "box",
+                                            "layout": "baseline",
+                                            "margin": "md",
+                                            "contents": stars + [
+                                                {
+                                                    "type": "text",
+                                                    "text": str(score),
+                                                    "size": "sm",
+                                                    "color": "#999999",
+                                                    "margin": "md",
+                                                    "flex": 0
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "type": "box",
+                                            "layout": "baseline",
+                                            "margin": "md",
+                                            "contents": [
+                                                {
+                                                    "type": "text",
+                                                    "text": ', '.join(anime_trending["genres"]),
+                                                    "color": "#ebebeb",
+                                                    "size": "sm",
+                                                    "flex": 0,
+                                                    "wrap": True
+                                                }
+                                            ]
+                                        },
+                                    ],
+                                    "position": "absolute",
+                                    "offsetBottom": "0px",
+                                    "offsetStart": "0px",
+                                    "offsetEnd": "0px",
+                                    "backgroundColor": "#000000cc",
+                                    "paddingAll": "20px",
+                                    "paddingTop": "18px"
+                                }
+                            ],
+                            "paddingAll": "0px"
+                        },
+                        "footer": {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "box",
+                                    "layout": "horizontal",
+                                    "contents": [
+                                    {
+                                        "type": "button",
+                                        "action": {
+                                            "type": "postback",
+                                            "label": "Selengkapnya",
+                                            "data": f"anime info {anime_trending['malId']}",
+                                            "displayText": anime_trending['title']['romaji']
+                                        },
+                                        "color": "#ffffff",
+                                        "gravity": "center",
+                                        "style": "link"
+                                    }
+                                    ],
+                                    "borderWidth": "1px",
+                                    "cornerRadius": "4px",
+                                    "spacing": "sm",
+                                    "borderColor": "#ffffff",
+                                    "height": "40px"
+                                }
+                            ],
+                            "backgroundColor": "#000000",
+                            "paddingAll": "20px",
+                            "paddingTop": "0px"
+                        }
+                    }
+
+                    carousels.append(carousel)
+
+                flex_message = FlexSendMessage(alt_text="Informasi Anime", contents={"type": "carousel", "contents": carousels})
+                line_bot_api.reply_message(token, flex_message)
+                anime_info_count = {}
+                return
+        
         else:
             return "Perintah tidak valid. Gunakan format 'hk anime <action> <query>'."
 
     else:
         return "Format perintah 'anime' tidak valid. Gunakan format 'hk anime <action> <query>'."
-    
+
+
 
 def hk_postback_anime(data, reply_token):
     global anime_info_count

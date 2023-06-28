@@ -25,9 +25,19 @@ def hk_help(reply_token):
             "deskripsi": "Quote Random Berdasarkan Nama Karakter Anime"
         },
         {
+            "judul": "Quote Random",
+            "perintah": "hk quote random\nhk q r",
+            "deskripsi": "Lihat quote anime acak"
+        },
+        {
             "judul": "Informasi Anime",
             "perintah": "hk anime info <judul anime>\nhk a i <judul anime>",
             "deskripsi": "Menampilkan Informasi Anime"
+        },
+        {
+            "judul": "Anime Trending",
+            "perintah": "hk anime trending\nhk a t",
+            "deskripsi": "Menampilkan anime trending saat ini"
         }
     ]
 
